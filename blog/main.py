@@ -1,5 +1,6 @@
-from fastapi import Depends, FastAPI, status,Response,HTTPException
-from . import schemas, models
+from typing import List
+from fastapi import FastAPI, status,Response,HTTPException,Depends
+from . import schemas, models,hashing
 from .database import engine, SessionLocal
 from sqlalchemy.orm import Session
 
@@ -18,7 +19,7 @@ def get_db():
         db.close()
 
 @app.post('/blog',status_code=status.HTTP_201_CREATED)
-def creat(request:schemas.Blog, db: Session = Depends(get_db)):
+def create(request:schemas.Blog, db: Session = Depends(get_db)):
     
     new_blog = models.Blog(title=request.title,body=request.body)
     db.add(new_blog)
@@ -54,12 +55,12 @@ def update(id, request: schemas.Blog, db: Session = Depends(get_db)):
         db.commit()
         return "data upadated"
 
-@app.get('/blog')
+@app.get('/blog',response_model=List[schemas.ShowBlog])
 def all(db: Session = Depends(get_db)):
     blogs = db.query(models.Blog).all()
     return blogs
 
-@app.get('/blog/{id}',status_code=200)
+@app.get('/blog/{id}',status_code=200,response_model=schemas.ShowBlog)
 def show(id: int,response: Response,db: Session = Depends(get_db)):
     
     blog = db.query(models.Blog).filter(models.Blog.id == id).first()
@@ -71,3 +72,20 @@ def show(id: int,response: Response,db: Session = Depends(get_db)):
         # return {'detail':f'{id}: Blog is Not Found on this ID'}
     return blog
     
+
+
+@app.post('/user',response_model=schemas.ShowUser)
+def creat_user(request: schemas.User,db: Session = Depends(get_db)):
+    new_user = models.User(name=request.name,
+                           email=request.email,
+                           password=hashing.Hash.bcrypt(request.password)
+                           )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
+
+# @app.get('/user/{id}',response_model=schemas.ShowUser)
+# def get_user(id: int,db: Session = Depends(get_db)):
+    
+#     user = db.
